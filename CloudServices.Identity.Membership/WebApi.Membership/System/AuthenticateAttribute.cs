@@ -14,27 +14,39 @@
 // places, or events is intended or should be inferred.
 // ----------------------------------------------------------------------------------
 
-namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications
+namespace System.Net.Http
 {
-    using System.Net.Http;
+    using System;
     using System.Web;
-    using ApplicationServer.Http.Dispatcher;
+    using System.Web.Http;
+    using System.Web.Http.Controllers;
+    using System.Web.Http.Filters;
+    using System.Web.Security;
 
-    internal class FuncBasedOperationHandler : HttpOperationHandler<HttpRequestMessage, HttpRequestMessage>
+    public class AuthenticateAttribute : AuthorizationFilterAttribute
     {
-        private readonly FuncBasedFilterAttribute filterAttribute;
-
-        public FuncBasedOperationHandler(FuncBasedFilterAttribute filterAttribute)
-            : base("response")
+        public override void OnAuthorization(HttpActionContext actionContext)
         {
-            this.filterAttribute = filterAttribute;
+            var input = actionContext.Request;
+            var principal = PrincipalHelper.GetPrincipalFromHttpRequest(input);
+            if (principal == null)
+            {
+                throw UnauthorizedException();
+            }
+
+            var user = Membership.GetUser(principal.Identity.Name);
+            if (user == null)
+            {
+                throw UnauthorizedException();
+            }
+
+            PrincipalHelper.SetPrincipal(input, principal);
+
+            base.OnAuthorization(actionContext);
         }
 
-        protected override HttpRequestMessage OnHandle(HttpRequestMessage input)
+        private static Exception UnauthorizedException()
         {
-            if (this.filterAttribute.Filter(input))
-                return input;
-
             // HACK: Prevent ASP.NET Forms Authentication to redirect the user to the login page.
             // This thread-safe approach adds a header with the suppression to be read on the 
             // OnEndRequest event of the pipelien. In order to fully support the supression you should have the ASP.NET Module
@@ -42,7 +54,7 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications
             var response = new HttpResponseMessage(System.Net.HttpStatusCode.Unauthorized);
             response.Headers.Add(SuppressFormsAuthenticationRedirectModule.SuppressFormsHeaderName, "true");
 
-            throw new HttpResponseException(response);
+            return new HttpResponseException(response);
         }
     }
 }

@@ -24,6 +24,9 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications.Sql
         public override string ApplicationId { get; set; }
 
         [Key, Column(Order = 1)]
-        public override string DeviceId { get; set; }
+        public override string TileId { get; set; }
+
+        [Key, Column(Order = 2)]
+        public override string ClientId { get; set; }
     }
 }

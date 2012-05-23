@@ -17,12 +17,11 @@
 namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications
 {
     using System;
-    using System.Net.Http;
+    using System.Web.Http.Controllers;
 
-    [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
-    internal sealed class AuthorizeManagementEndpointAttribute : FuncBasedFilterAttribute
+    internal sealed class AuthorizeManagementEndpointAttribute : FuncBasedAuthorizationFilterAttribute
     {
-        public override Func<HttpRequestMessage, bool> Filter
+        public override Func<HttpActionContext, bool> Filter
         {
             get { return NotificationServiceContext.Current.Configuration.AuthorizeManagementRequest; }
         }

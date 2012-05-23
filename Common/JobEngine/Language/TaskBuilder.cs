@@ -72,12 +72,12 @@ namespace Microsoft.WindowsAzure.Samples.Common.JobEngine.Language
         public void Start(ExecutionModel execution)
         {
             ThreadPool.QueueUserWorkItem(s =>
+            {
+                while (true)
                 {
-                    while (true)
-                    {
-                        Cycle();
-                    }
-                });
+                    Cycle();
+                }
+            });
         }
 
         public void Start()

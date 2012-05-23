@@ -19,38 +19,30 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Identity.Membership
     using System;
     using System.Net;
     using System.Net.Http;
-    using System.ServiceModel;
-    using System.ServiceModel.Activation;
-    using System.ServiceModel.Web;
+    using System.Web.Http;
     using System.Web.Security;
-    using Microsoft.ApplicationServer.Http.Dispatcher;
-    using Microsoft.Net.Http;
-    using Properties;
 
-    [ServiceContract]
-    [ServiceBehavior(IncludeExceptionDetailInFaults = false)]
-    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Required)]
-    public class MembershipService
+    public class MembershipController : ApiController
     {
         private readonly MembershipProvider membershipProvider;
 
-        public MembershipService()
+        public MembershipController()
             : this(Membership.Provider)
         {
         }
 
         [CLSCompliant(false)]
-        public MembershipService(MembershipProvider membershipProvider)
+        public MembershipController(MembershipProvider membershipProvider)
         {
             this.membershipProvider = membershipProvider ?? Membership.Provider;
         }
 
-        [WebInvoke(UriTemplate = "logon", Method = "POST")]
-        public HttpResponseMessage LogOnUser(LogOn logOn)
+        [HttpPost]
+        public HttpResponseMessage Logon(LogOn logOn)
         {
             if ((logOn == null) || string.IsNullOrWhiteSpace(logOn.UserName) || string.IsNullOrWhiteSpace(logOn.Password))
             {
-                throw WebException(Resources.InvalidCredentialsMessage, HttpStatusCode.BadRequest);
+                throw WebException(Constants.InvalidCredentialsMessage, HttpStatusCode.BadRequest);
             }
 
             bool isValidUser;
@@ -65,19 +57,19 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Identity.Membership
 
             if (!isValidUser)
             {
-                throw WebException(Resources.InvalidCredentialsMessage, HttpStatusCode.Unauthorized);
+                throw WebException(HttpStatusCode.Unauthorized);
             }
 
             var token = this.GenerateMembershipToken(logOn.UserName);
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(token) };
         }
 
-        [Authenticate, WebGet(UriTemplate = "username")]
-        public HttpResponseMessage UserName(HttpRequestMessage message)
+        [Authenticate, HttpGet]
+        public HttpResponseMessage UserName()
         {
             try
             {
-                var username = message.User().Identity.Name;
+                var username = this.Request.User().Identity.Name;
 
                 if (username != null)
                 {
@@ -85,7 +77,10 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Identity.Membership
                     if (user != null)
                     {
                         var response = new HttpResponseMessage(HttpStatusCode.OK)
-                            { Content = new StringContent(user.UserName) };
+                        {
+                            Content = new StringContent(user.UserName)
+                        };
+
                         return response;
                     }
                 }
@@ -98,14 +93,14 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Identity.Membership
             }
         }
 
-        [WebInvoke(UriTemplate = "users", Method = "PUT")]
-        public HttpResponseMessage<User> CreateUser(User user)
+        [HttpPut]
+        public HttpResponseMessage<User> Users(User user)
         {
             MembershipCreateStatus createStatus;
 
             if ((user == null) || string.IsNullOrWhiteSpace(user.Name) || string.IsNullOrWhiteSpace(user.Email) || string.IsNullOrWhiteSpace(user.Password))
             {
-                throw WebException(Resources.InvalidUserInformation, HttpStatusCode.BadRequest);
+                throw WebException(Constants.InvalidUserInformation, HttpStatusCode.BadRequest);
             }
 
             this.membershipProvider.CreateUser(user.Name, user.Password, user.Email, null, null, true, null, out createStatus);
@@ -130,7 +125,13 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Identity.Membership
 
         private static HttpResponseException WebException(string message, HttpStatusCode code)
         {
-            var result = new HttpResponseException(new HttpResponseMessage(code) { Content = new StringContent(message) });
+            var response = new HttpResponseMessage(code);
+            if (!string.IsNullOrEmpty(message))
+            {
+                response.Content = new StringContent(message);
+            }
+
+            var result = new HttpResponseException(response);
 
             if (code == HttpStatusCode.Unauthorized)
             {
@@ -138,6 +139,11 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Identity.Membership
             }
 
             return result;
+        }
+
+        private static HttpResponseException WebException(HttpStatusCode code)
+        {
+            return WebException(null, code);
         }
     }
 }

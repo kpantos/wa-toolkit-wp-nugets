@@ -22,13 +22,17 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications
     {
         public virtual string ApplicationId { get; set; }
 
-        public virtual string DeviceId { get; set; }
+        public virtual string TileId { get; set; }
+
+        public virtual string ClientId { get; set; }
 
         public string ChannelUri { get; set; }
 
         public string UserId { get; set; }
 
-        public string Expiry { get; set; }
+        public DateTime ExpirationTime { get; set; }
+
+        public string DeviceType { get; set; }
 
         public static T To<T>(Endpoint endpoint) where T : Endpoint
         {
@@ -38,10 +42,12 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications
             var destination = Activator.CreateInstance<T>();
 
             destination.ApplicationId = endpoint.ApplicationId;
+            destination.TileId = endpoint.TileId;
+            destination.ClientId = endpoint.ClientId;
             destination.ChannelUri = endpoint.ChannelUri;
-            destination.DeviceId = endpoint.DeviceId;
-            destination.Expiry = endpoint.Expiry;
             destination.UserId = endpoint.UserId;
+            destination.ExpirationTime = endpoint.ExpirationTime;
+            destination.DeviceType = endpoint.DeviceType;
 
             return destination;
         }

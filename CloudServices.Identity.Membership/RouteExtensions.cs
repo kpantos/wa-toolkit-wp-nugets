@@ -16,16 +16,24 @@
 
 namespace Microsoft.WindowsAzure.Samples.CloudServices.Identity.Membership
 {
-    using System;
+    using System.Net.Http;
+    using System.Web.Http;
     using System.Web.Routing;
-    using Microsoft.ApplicationServer.Http;
 
     public static class RouteExtensions
     {
-        public static void MapAuthenticationServiceRoute(this RouteCollection routes, string prefix, params Type[] handlers)
+        public static void MapAuthenticationServiceRoute(this RouteCollection routes, string prefix, params DelegatingHandler[] handlers)
         {
-            var configuration = new HttpConfiguration().AddDelegatingHandlers(handlers).AddRequestHandlers();
-            routes.MapServiceRoute<MembershipService>(prefix, configuration);
+            var currentConfiguration = GlobalConfiguration.Configuration;
+
+            // Handlers
+            currentConfiguration.AddDelegatingHandlers(handlers);
+
+            // Routes
+            routes.MapHttpRoute(
+                name: prefix,
+                routeTemplate: prefix + "/{action}",
+                defaults: new { Controller = "Membership" });
         }
     }
 }

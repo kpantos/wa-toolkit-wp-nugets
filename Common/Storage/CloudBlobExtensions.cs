@@ -48,7 +48,7 @@ namespace Microsoft.WindowsAzure.Samples.Common.Storage
             blob.UploadText("text", "text");
             blob.ReleaseLease(leaseId);
         }
-        
+
         public static string AcquireLease(this CloudBlob blob)
         {
             var creds = blob.ServiceClient.Credentials;

@@ -26,7 +26,6 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage.Handlers
     using System.Web;
     using Microsoft.WindowsAzure;
     using Microsoft.WindowsAzure.Samples.CloudServices.Storage.Helpers;
-    using Microsoft.WindowsAzure.Samples.CloudServices.Storage.Properties;
 
     public abstract class StorageProxyHandler
     {
@@ -47,7 +46,7 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage.Handlers
         public HttpResponseMessage ProcessRequest(HttpRequestMessage request)
         {
             if (request == null)
-                throw new ArgumentNullException("request", Resource.RequestCannotBeNullErrorMessage);
+                throw new ArgumentNullException("request", Constants.RequestCannotBeNullErrorMessage);
 
             var originalUri = request.RequestUri;
 
@@ -79,7 +78,7 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage.Handlers
         protected string GetAzureStorageRequestBody(string proxyRequestBody, HttpRequestMessage request)
         {
             if (request == null)
-                throw new ArgumentNullException("request", Resource.RequestCannotBeNullErrorMessage);
+                throw new ArgumentNullException("request", Constants.RequestCannotBeNullErrorMessage);
 
             if (string.IsNullOrWhiteSpace(proxyRequestBody))
             {
@@ -111,7 +110,6 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage.Handlers
             return azureStorageResponseBody.Replace(oldValue, newValue);
         }
 
-        [CLSCompliant(false)]
         protected abstract void SignRequest(HttpRequestMessage request);
 
         private static string GetLocalPath(Uri originalUri, Uri mappedUri, HttpRequestMessage request)
@@ -167,18 +165,18 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage.Handlers
             {
                 var task = azureClient.SendAsync(request);
 
-                // Synchronize Azure Invokation
+                // Synchronize Azure Invocation
                 task.Wait();
 
                 return task.Result;
             }
             catch (HttpException webException)
             {
-                throw Extensions.StorageException(HttpStatusCode.InternalServerError, Resource.WindowsAzureStorageExceptionStringMessage, webException.Message);
+                throw Extensions.StorageException(HttpStatusCode.InternalServerError, Constants.WindowsAzureStorageExceptionStringMessage, webException.Message);
             }
             catch (ObjectDisposedException exception)
             {
-                throw Extensions.StorageException(HttpStatusCode.InternalServerError, Resource.HttpClientDisposedErrorString, exception.Message);
+                throw Extensions.StorageException(HttpStatusCode.InternalServerError, Constants.HttpClientDisposedErrorString, exception.Message);
             }
         }
     }

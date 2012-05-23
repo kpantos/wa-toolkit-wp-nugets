@@ -42,6 +42,8 @@ namespace Microsoft.WindowsAzure.Samples.Phone.Notifications
 
         public string ApplicationId { get; set; }
 
-        public string DeviceId { get; set; }
+        public string ClientId { get; set; }
+
+        public string DeviceType { get; set; }
     }
 }

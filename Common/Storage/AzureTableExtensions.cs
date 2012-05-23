@@ -43,7 +43,7 @@ namespace Microsoft.WindowsAzure.Samples.Common.Storage
             entity.RowKey = Guid.NewGuid().ToString();
             Array.ForEach(
                 entity.GetType().GetProperties(
-                    BindingFlags.Public | BindingFlags.Instance), 
+                    BindingFlags.Public | BindingFlags.Instance),
                     p =>
                     {
                         if ((p.Name != "PartitionKey") && (p.Name != "RowKey") && (p.Name != "Timestamp"))

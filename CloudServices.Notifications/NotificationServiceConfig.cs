@@ -19,45 +19,36 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications
     using System;
     using System.Collections.Generic;
     using System.Net.Http;
+    using System.Web.Http.Controllers;
 
     public class NotificationServiceConfig
     {
-        private Func<HttpRequestMessage, bool> authenticateRequest;
-        private Func<HttpRequestMessage, bool> authorizeManagementRequest;
-        private Func<HttpRequestMessage, bool> authorizeRegistrationRequest;
+        private Func<HttpActionContext, bool> authenticateRequest;
+        private Func<HttpActionContext, bool> authorizeManagementRequest;
+        private Func<HttpActionContext, bool> authorizeRegistrationRequest;
         private Func<HttpRequestMessage, string> mapUsername;
 
         public NotificationServiceConfig()
         {
-            this.DelegatingHandlers = new Type[] { };
+            this.DelegatingHandlers = new DelegatingHandler[] { };
         }
 
-        public Func<HttpRequestMessage, bool> AuthenticateRequest
+        public Func<HttpActionContext, bool> AuthenticateRequest
         {
-            get
-            {
-                return this.authenticateRequest ?? (this.authenticateRequest = DefaultAnonymousAccess);
-            }
+            get { return this.authenticateRequest ?? (this.authenticateRequest = DefaultAnonymousAccess); }
 
             set { this.authenticateRequest = value; }
         }
 
-        public Func<HttpRequestMessage, bool> AuthorizeManagementRequest
+        public Func<HttpActionContext, bool> AuthorizeManagementRequest
         {
-            get
-            {
-                return this.authorizeManagementRequest ?? (this.authorizeManagementRequest = DefaultAnonymousAccess);
-            }
-
+            get { return this.authorizeManagementRequest ?? (this.authorizeManagementRequest = DefaultAnonymousAccess); }
             set { this.authorizeManagementRequest = value; }
         }
 
-        public Func<HttpRequestMessage, bool> AuthorizeRegistrationRequest
+        public Func<HttpActionContext, bool> AuthorizeRegistrationRequest
         {
-            get
-            {
-                return this.authorizeRegistrationRequest ?? (this.authorizeRegistrationRequest = DefaultAnonymousAccess);
-            }
+            get { return this.authorizeRegistrationRequest ?? (this.authorizeRegistrationRequest = DefaultAnonymousAccess); }
 
             set { this.authorizeRegistrationRequest = value; }
         }
@@ -72,14 +63,17 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications
                 return this.mapUsername;
             }
 
-            set { this.mapUsername = value; }
+            set
+            {
+                this.mapUsername = value;
+            }
         }
 
-        public IEnumerable<Type> DelegatingHandlers { get; set; }
+        public IEnumerable<DelegatingHandler> DelegatingHandlers { get; set; }
 
         public IEndpointRepository StorageProvider { get; set; }
 
-        private static bool DefaultAnonymousAccess(HttpRequestMessage message)
+        private static bool DefaultAnonymousAccess(HttpActionContext message)
         {
             // By default, return always true (anonymous user)
             return true;

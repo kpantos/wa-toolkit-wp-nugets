@@ -16,34 +16,15 @@
 
 namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
 {
-    using System;
     using System.Linq;
-
-    using Microsoft.ApplicationServer.Http;
-    using Microsoft.WindowsAzure.Samples.CloudServices.Storage.Security;
+    using System.Net.Http;
+    using System.Web.Http;
 
     internal static class ConfigurationExtensions
     {
-        internal static HttpConfiguration AddDelegatingHandlers(this HttpConfiguration config, params Type[] handlers)
+        internal static HttpConfiguration AddDelegatingHandlers(this HttpConfiguration config, params DelegatingHandler[] handlers)
         {
             handlers.ToList().ForEach(t => config.MessageHandlers.Add(t));
-
-            return config;
-        }
-
-        internal static HttpConfiguration AddRequestHandlers(this HttpConfiguration config)
-        {
-            var requestHandlers = config.RequestHandlers;
-
-            config.RequestHandlers = (c, e, od) =>
-            {
-                if (requestHandlers != null)
-                    requestHandlers(c, e, od); // Original request handler
-
-                var filterAttribute = od.Attributes.Where(a => typeof(FuncBasedFilterAttribute).IsAssignableFrom(a.GetType())).Cast<FuncBasedFilterAttribute>().ToList();
-
-                filterAttribute.ForEach(a => c.Add(new FuncBasedOperationHandler(a)));
-            };
 
             return config;
         }

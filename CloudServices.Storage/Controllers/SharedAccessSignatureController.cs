@@ -22,20 +22,14 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
     using System.Net;
     using System.Net.Http;
     using System.Net.Http.Headers;
-    using System.ServiceModel;
-    using System.ServiceModel.Activation;
-    using System.ServiceModel.Web;
     using System.Text.RegularExpressions;
-    using Microsoft.ApplicationServer.Http.Dispatcher;
+    using System.Web.Http;
+    using Microsoft.WindowsAzure;
     using Microsoft.WindowsAzure.Samples.CloudServices.Storage.Helpers;
-    using Microsoft.WindowsAzure.Samples.CloudServices.Storage.Properties;
     using Microsoft.WindowsAzure.Samples.CloudServices.Storage.Security;
     using Microsoft.WindowsAzure.StorageClient;
 
-    [ServiceContract]
-    [ServiceBehavior(IncludeExceptionDetailInFaults = false)]
-    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Required)]
-    public class SharedAccessSignatureService
+    public class SharedAccessSignatureController : ApiController
     {
         private const SharedAccessPermissions ContainerSharedAccessPermissions = SharedAccessPermissions.Write | SharedAccessPermissions.Delete | SharedAccessPermissions.List | SharedAccessPermissions.Read;
 
@@ -45,48 +39,43 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
 
         private readonly CloudBlobClient cloudBlobClient;
 
-        public SharedAccessSignatureService()
+        public SharedAccessSignatureController()
             : this(StorageServicesContext.Current.Configuration.CloudStorageAccount)
         {
         }
 
-        public SharedAccessSignatureService(CloudStorageAccount storageAccount)
+        public SharedAccessSignatureController(CloudStorageAccount storageAccount)
         {
             if (storageAccount == null)
-                throw new ArgumentNullException("storageAccount", Resource.CloudStorageAccountNullArgumentErrorMessage);
+                throw new ArgumentNullException("storageAccount", Constants.CloudStorageAccountNullArgumentErrorMessage);
 
             this.cloudBlobClient = storageAccount.CreateCloudBlobClient();
         }
 
-        [OperationContract]
         [AuthorizeBlobsAccess]
         [CLSCompliant(false)]
-        [WebInvoke(Method = "PUT", UriTemplate = "/containers/{containerName}?comp={operation}")]
-        public HttpResponseMessage CreateContainer(HttpRequestMessage request, string containerName, string operation)
+        public HttpResponseMessage Put(string containerName, string comp)
         {
-            if (request == null)
-                throw new ArgumentNullException("request", Resource.RequestNullErrorMessage);
-
             // Determine if the public-access header was sent
-            string publicAccessMode = GetPublicAccessMode(request);
+            string publicAccessMode = GetPublicAccessMode(this.Request);
 
             // operation is ACL but headers have not been sent
-            if (string.IsNullOrEmpty(publicAccessMode) && !string.IsNullOrEmpty(operation) && operation.Equals("acl", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrEmpty(publicAccessMode) && !string.IsNullOrEmpty(comp) && comp.Equals("acl", StringComparison.OrdinalIgnoreCase))
                 publicAccessMode = "OFF";
 
             // operation is null and container name is null 
-            if (string.IsNullOrWhiteSpace(containerName) && string.IsNullOrWhiteSpace(operation))
-                throw WebException(Resource.ContainerNameNullArgumentErrorMessage, HttpStatusCode.BadRequest);
+            if (string.IsNullOrWhiteSpace(containerName) && string.IsNullOrWhiteSpace(comp))
+                throw WebException(Constants.ContainerNameNullArgumentErrorMessage, HttpStatusCode.BadRequest);
 
             try
             {
                 var responseStatusCode = HttpStatusCode.InternalServerError;
                 var container = this.cloudBlobClient.GetContainerReference(containerName);
 
-                UpdateContainerWithMetadataFromRequest(request, container);
+                UpdateContainerWithMetadataFromRequest(this.Request, container);
 
                 // operation is null --> the create container mode is requested
-                if (string.IsNullOrEmpty(operation))
+                if (string.IsNullOrEmpty(comp))
                 {
                     responseStatusCode = HttpStatusCode.Created;
                     container.Create();
@@ -103,7 +92,7 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
                 }
 
                 // operation == metadata
-                if (!string.IsNullOrEmpty(operation) && operation.Equals("metadata", StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrEmpty(comp) && comp.Equals("metadata", StringComparison.OrdinalIgnoreCase))
                 {
                     responseStatusCode = HttpStatusCode.OK;
                     container.SetMetadata();
@@ -117,11 +106,9 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
             }
         }
 
-        [OperationContract]
         [AuthorizeBlobsAccess]
         [CLSCompliant(false)]
-        [WebInvoke(Method = "DELETE", UriTemplate = "/containers/{containerName}")]
-        public HttpResponseMessage DeleteContainer(string containerName)
+        public HttpResponseMessage Delete(string containerName)
         {
             try
             {
@@ -136,10 +123,9 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
             }
         }
 
-        [OperationContract]
         [AuthorizeBlobsAccess]
         [CLSCompliant(false)]
-        [WebInvoke(Method = "HEAD", UriTemplate = "/containers/{containerName}")]
+        [AcceptVerbs("HEAD")]
         public HttpResponseMessage GetContainerProperties(string containerName)
         {
             try
@@ -165,17 +151,23 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
             }
         }
 
-        [OperationContract]
         [AuthorizeBlobsAccess]
         [CLSCompliant(false)]
-        [WebGet(UriTemplate = "/containers?prefix={containerPrefix}")]
-        public HttpResponseMessage<SasCloudBlobContainerListResponse> ListContainers(string containerPrefix)
+        public HttpResponseMessage<SasCloudBlobContainerListResponse> GetContainers()
+        {
+            return this.GetContainers(string.Empty);
+        }
+
+        [AuthorizeBlobsAccess]
+        [CLSCompliant(false)]
+        public HttpResponseMessage<SasCloudBlobContainerListResponse> GetContainers(string prefix)
         {
             IEnumerable<CloudBlobContainer> containers;
-            if (!string.IsNullOrEmpty(containerPrefix))
+
+            if (!string.IsNullOrEmpty(prefix))
             {
-                containerPrefix = containerPrefix.TrimStart('/', '\\').Replace('\\', '/');
-                containers = this.cloudBlobClient.ListContainers(containerPrefix);
+                prefix = prefix.TrimStart('/', '\\').Replace('\\', '/');
+                containers = this.cloudBlobClient.ListContainers(prefix);
             }
             else
             {
@@ -193,14 +185,12 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
             return new HttpResponseMessage<SasCloudBlobContainerListResponse>(result, HttpStatusCode.OK);
         }
 
-        [OperationContract]
         [AuthorizeBlobsAccess]
         [CLSCompliant(false)]
-        [WebGet(UriTemplate = "/containers/{containerName}?comp={operation}")]
-        public HttpResponseMessage GetContainerSharedAccessSignature(string containerName, string operation)
+        public HttpResponseMessage GetContainerSharedAccessSignature(string containerName, string comp)
         {
-            if (string.IsNullOrEmpty(operation) || !operation.Equals("sas", StringComparison.OrdinalIgnoreCase))
-                throw WebException(Resource.CompMustBeSasArgumentErrorMessage, HttpStatusCode.BadRequest);
+            if (string.IsNullOrEmpty(comp) || !comp.Equals("sas", StringComparison.OrdinalIgnoreCase))
+                throw WebException(Constants.CompMustBeSasArgumentErrorMessage, HttpStatusCode.BadRequest);
 
             var container = this.cloudBlobClient.GetContainerReference(containerName);
             var sas = container.GetSharedAccessSignature(new SharedAccessPolicy
@@ -213,14 +203,12 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
             return new HttpResponseMessage { Content = new StringContent(uriBuilder.Uri.AbsoluteUri), StatusCode = HttpStatusCode.OK };
         }
 
-        [OperationContract]
         [AuthorizeBlobsAccess]
         [CLSCompliant(false)]
-        [WebGet(UriTemplate = "/blobs/{containerName}/{*blobName}?comp={operation}")]
-        public HttpResponseMessage GetBlobSharedAccessSignature(string containerName, string blobName, string operation)
+        public HttpResponseMessage GetBlobSharedAccessSignature(string containerName, string blobName, string comp)
         {
-            if (string.IsNullOrEmpty(operation) || !operation.Equals("sas", StringComparison.OrdinalIgnoreCase))
-                throw WebException(Resource.CompMustBeSasArgumentErrorMessage, HttpStatusCode.BadRequest);
+            if (string.IsNullOrEmpty(comp) || !comp.Equals("sas", StringComparison.OrdinalIgnoreCase))
+                throw WebException(Constants.CompMustBeSasArgumentErrorMessage, HttpStatusCode.BadRequest);
 
             try
             {

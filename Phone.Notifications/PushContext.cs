@@ -109,7 +109,7 @@ namespace Microsoft.WindowsAzure.Samples.Phone.Notifications
 
         public IPushClient ResolvePushClient()
         {
-            return new PushClient(this.Configuration.EndpointsServiceUri, this.Configuration.SignRequest, this.Configuration.ApplicationId, this.Configuration.DeviceId, this.Configuration.Dispatcher);
+            return new PushClient(this.Configuration.EndpointsServiceUri, this.Configuration.SignRequest, this.Configuration.ApplicationId, this.Configuration.ClientId, this.Configuration.DeviceType, this.Configuration.Dispatcher);
         }
 
         public void Connect(Action<HttpNotificationChannel> callback)
@@ -126,6 +126,7 @@ namespace Microsoft.WindowsAzure.Samples.Phone.Notifications
                 {
                     // First, try to pick up an existing channel.
                     this.NotificationChannel = HttpNotificationChannel.Find(this.config.ChannelName);
+
                     if (this.NotificationChannel == null)
                     {
                         this.CreateChannel(callback);

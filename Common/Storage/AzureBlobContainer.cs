@@ -35,7 +35,7 @@ namespace Microsoft.WindowsAzure.Samples.Common.Storage
 
         public AzureBlobContainer(CloudStorageAccount account, string containerName)
             : this(account, containerName.ToLowerInvariant(), false)
-        { 
+        {
         }
 
         public AzureBlobContainer(CloudStorageAccount account, string containerName, bool jsonpSupport)
@@ -74,7 +74,7 @@ namespace Microsoft.WindowsAzure.Samples.Common.Storage
             {
                 permissions.PublicAccess = BlobContainerPublicAccessType.Container;
             }
-            
+
             this.container.SetPermissions(permissions);
         }
 

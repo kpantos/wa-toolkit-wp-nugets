@@ -17,6 +17,7 @@
 namespace Microsoft.WindowsAzure.Samples.Phone.Notifications
 {
     using System;
+    using System.Collections.Generic;
     using System.Globalization;
     using System.IO;
     using System.Net;
@@ -31,14 +32,13 @@ namespace Microsoft.WindowsAzure.Samples.Phone.Notifications
         private readonly Action<WebRequest> signRequestDelegate;
         private readonly Dispatcher dispatcher;
         private readonly string applicationId;
-        private readonly string deviceId;
+        private readonly string clientId;
+        private readonly string deviceType;
+        private readonly IList<Uri> notificationEndpoints = new List<Uri>();
+        private static Uri primaryTileEnpointIdentifier = new Uri("/", UriKind.Relative);
+        private string channelUri;
 
-        public PushClient(Uri endpointsServiceUri, Action<WebRequest> signRequestDelegate, string applicationId, string deviceId)
-            : this(endpointsServiceUri, signRequestDelegate, applicationId, deviceId, null)
-        {
-        }
-
-        public PushClient(Uri endpointsServiceUri, Action<WebRequest> signRequestDelegate, string applicationId, string deviceId, Dispatcher dispatcher)
+        public PushClient(Uri endpointsServiceUri, Action<WebRequest> signRequestDelegate, string applicationId, string clientId, string deviceType, Dispatcher dispatcher = null)
         {
             if (endpointsServiceUri == null)
                 throw new ArgumentNullException("endpointsServiceUri");
@@ -49,48 +49,56 @@ namespace Microsoft.WindowsAzure.Samples.Phone.Notifications
             if (string.IsNullOrWhiteSpace(applicationId))
                 throw new ArgumentNullException("applicationId");
 
-            if (string.IsNullOrWhiteSpace(deviceId))
-                throw new ArgumentNullException("deviceId");
+            if (string.IsNullOrWhiteSpace(clientId))
+                throw new ArgumentNullException("clientId");
+
+            if (string.IsNullOrWhiteSpace(deviceType))
+                throw new ArgumentNullException("deviceType");
 
             this.endpointsServiceUri = endpointsServiceUri;
             this.signRequestDelegate = signRequestDelegate;
             this.applicationId = applicationId;
-            this.deviceId = deviceId;
+            this.clientId = clientId;
+            this.deviceType = deviceType;
             this.dispatcher = dispatcher;
         }
 
-        public void Connect(Action<PushRegistrationResponse> callback)
+        public void Register(Action<PushRegistrationResponse> callback, Uri tileNavigationUri = null)
         {
-            EventHandler<PushContextErrorEventArgs> errorHandler = null;
-            errorHandler =
-                (s, e) =>
-                {
-                    PushContext.Current.Error -= errorHandler;
-                    this.DispatchCallback(callback, new PushRegistrationResponse(false, e.Exception.Message));
-                };
-
-            PushContext.Current.Error += errorHandler;
-            PushContext.Current.Connect(
-                c =>
-                {
-                    PushContext.Current.Error -= errorHandler;
-
-                    var endpoint = new Endpoint
+            if (string.IsNullOrWhiteSpace(this.channelUri))
+            {
+                EventHandler<PushContextErrorEventArgs> errorHandler = null;
+                errorHandler =
+                    (s, e) =>
                     {
-                        ApplicationId = this.applicationId,
-                        DeviceId = this.deviceId,
-                        ChannelUri = c.ChannelUri.ToString()
+                        PushContext.Current.Error -= errorHandler;
+                        this.DispatchCallback(callback, new PushRegistrationResponse(false, e.Exception.Message));
                     };
 
-                    this.PutEndpoint(endpoint, callback);
-                });
+                PushContext.Current.Error += errorHandler;
+                PushContext.Current.Connect(
+                    c =>
+                    {
+                        PushContext.Current.Error -= errorHandler;
+
+                        this.channelUri = c.ChannelUri.AbsoluteUri;
+                        this.PutEndpoint(tileNavigationUri, callback);
+                    });
+            }
+            else
+            {
+                this.PutEndpoint(tileNavigationUri, callback);
+            }
         }
 
-        public void Disconnect(Action<PushRegistrationResponse> callback)
+        public void Unregister(Action<PushRegistrationResponse> callback, Uri tileNavigationUri = null)
         {
-            this.DeleteEndpoint(callback);
+            this.DeleteEndpoint(callback, tileNavigationUri);
 
-            PushContext.Current.Disconnect();
+            if (this.notificationEndpoints.Count == 0)
+            {
+                PushContext.Current.Disconnect();
+            }
         }
 
         protected virtual void DispatchCallback(Action<PushRegistrationResponse> callback, PushRegistrationResponse response)
@@ -109,8 +117,23 @@ namespace Microsoft.WindowsAzure.Samples.Phone.Notifications
             return (HttpWebRequest)WebRequestCreator.ClientHttp.Create(requestUri);
         }
 
-        private void PutEndpoint(Endpoint endpoint, Action<PushRegistrationResponse> callback)
+        private void PutEndpoint(Uri tileNavigationUri, Action<PushRegistrationResponse> callback)
         {
+            var endpointIdentifier = tileNavigationUri ?? primaryTileEnpointIdentifier;
+
+            if (this.notificationEndpoints.Contains(endpointIdentifier)) throw new InvalidOperationException("Navigation Uri already registered.");
+
+            var endpoint = new Endpoint
+            {
+                ApplicationId = this.applicationId,
+                ClientId = this.clientId,
+                DeviceType = this.deviceType,
+                ChannelUri = this.channelUri,
+                TileId = tileNavigationUri != null ?
+                    tileNavigationUri.ToString() :
+                    string.Empty
+            };
+
             var request = this.ResolveRequest(this.endpointsServiceUri);
             request.Method = "PUT";
             request.ContentType = "application/json";
@@ -145,10 +168,11 @@ namespace Microsoft.WindowsAzure.Samples.Phone.Notifications
                                     if ((response != null) && (response.StatusCode == HttpStatusCode.Accepted))
                                     {
                                         this.DispatchCallback(callback, new PushRegistrationResponse(true, string.Empty));
+                                        this.notificationEndpoints.Add(endpointIdentifier);
                                     }
                                     else
                                     {
-                                        this.DispatchCallback(callback, new PushRegistrationResponse(false, "The push notification channel coud not be registered in the Endpoints service."));
+                                        this.DispatchCallback(callback, new PushRegistrationResponse(false, "The specified endpoint could not be registered in the Endpoints service."));
                                     }
                                 }
                                 catch (WebException webException)
@@ -170,10 +194,26 @@ namespace Microsoft.WindowsAzure.Samples.Phone.Notifications
             }
         }
 
-        private void DeleteEndpoint(Action<PushRegistrationResponse> callback)
+        private void DeleteEndpoint(Action<PushRegistrationResponse> callback, Uri tileNavigationUri)
         {
+            var endpointIdentifier = tileNavigationUri ?? primaryTileEnpointIdentifier;
+
+            if (!this.notificationEndpoints.Contains(endpointIdentifier)) throw new InvalidOperationException("Navigation Uri is not registered. Call register method first.");
+
             var builder = new UriBuilder(this.endpointsServiceUri);
-            builder.Path += string.Format(CultureInfo.InvariantCulture, "/{0}/{1}", this.applicationId, this.deviceId);
+            builder.Path += string.Format(
+                CultureInfo.InvariantCulture,
+                "/{0}/{1}",
+                this.applicationId,
+                this.clientId);
+
+            if (tileNavigationUri != null)
+            {
+                builder.Query = string.Format(
+                        CultureInfo.InvariantCulture,
+                        "tileId={0}",
+                        tileNavigationUri.ToString());
+            }
 
             var request = this.ResolveRequest(builder.Uri);
             request.Method = "DELETE";
@@ -190,10 +230,11 @@ namespace Microsoft.WindowsAzure.Samples.Phone.Notifications
                             if ((response != null) && (response.StatusCode == HttpStatusCode.Accepted))
                             {
                                 this.DispatchCallback(callback, new PushRegistrationResponse(true, string.Empty));
+                                this.notificationEndpoints.Remove(endpointIdentifier);
                             }
                             else
                             {
-                                this.DispatchCallback(callback, new PushRegistrationResponse(false, "The push notification channel coud not be unregistered in the Endpoints service."));
+                                this.DispatchCallback(callback, new PushRegistrationResponse(false, "The specified endpoint could not be unregistered in the Endpoints service."));
                             }
                         }
                         catch (WebException webException)
@@ -202,6 +243,10 @@ namespace Microsoft.WindowsAzure.Samples.Phone.Notifications
                         }
                     },
                 null);
+            }
+            catch (InvalidOperationException exception)
+            {
+                this.DispatchCallback(callback, new PushRegistrationResponse(false, exception.Message));
             }
             catch (ArgumentNullException exception)
             {

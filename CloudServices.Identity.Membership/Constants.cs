@@ -14,13 +14,14 @@
 // places, or events is intended or should be inferred.
 // ----------------------------------------------------------------------------------
 
-namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage.Security
+namespace Microsoft.WindowsAzure.Samples.CloudServices.Identity.Membership
 {
     using System;
-    using System.Net.Http;
 
-    internal abstract class FuncBasedFilterAttribute : Attribute
+    public static class Constants
     {
-        public abstract Func<HttpRequestMessage, bool> Filter { get; }
+        public const string InvalidCredentialsMessage = "Invalid credentials.";
+
+        public const string InvalidUserInformation = "Invalid user information.";
     }
 }

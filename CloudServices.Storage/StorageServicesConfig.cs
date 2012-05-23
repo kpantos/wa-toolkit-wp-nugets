@@ -18,18 +18,23 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
     using System.Net.Http;
+    using System.Web.Http;
+    using System.Web.Http.Controllers;
+    using Microsoft.WindowsAzure;
 
     public class StorageServicesConfig
     {
         private const int DefaultMaximmumResponseSize = 1024 * 1024;
         private const int DefaultSasExpirationSize = 15;
 
-        private Func<HttpRequestMessage, bool> authorizeQueuesAccess;
-        private Func<HttpRequestMessage, bool> authorizeTablesAccess;
-        private Func<HttpRequestMessage, bool> authorizeBlobsAccess;
-        private Func<HttpRequestMessage, bool> authenticateRequest;
+        private Func<HttpActionContext, bool> authorizeQueuesAccess;
+        private Func<HttpActionContext, bool> authorizeTablesAccess;
+        private Func<HttpActionContext, bool> authorizeBlobsAccess;
+        private Func<HttpActionContext, bool> authenticateRequest;
         private Func<HttpRequestMessage, string> mapUserName;
+        private IEnumerable<DelegatingHandler> delegatingHandlers;
 
         private int containerSasExpirationTime;
         private int blobsSasExpirationTime;
@@ -37,7 +42,7 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
 
         public StorageServicesConfig()
         {
-            this.DelegatingHandlers = new Type[] { };
+            this.delegatingHandlers = new DelegatingHandler[] { };
         }
 
         public CloudStorageAccount CloudStorageAccount { get; set; }
@@ -90,7 +95,7 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
             }
         }
 
-        public Func<HttpRequestMessage, bool> AuthorizeTablesAccess
+        public Func<HttpActionContext, bool> AuthorizeTablesAccess
         {
             get
             {
@@ -100,7 +105,7 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
             set { this.authorizeTablesAccess = value; }
         }
 
-        public Func<HttpRequestMessage, bool> AuthorizeQueuesAccess
+        public Func<HttpActionContext, bool> AuthorizeQueuesAccess
         {
             get
             {
@@ -110,7 +115,7 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
             set { this.authorizeQueuesAccess = value; }
         }
 
-        public Func<HttpRequestMessage, bool> AuthorizeBlobsAccess
+        public Func<HttpActionContext, bool> AuthorizeBlobsAccess
         {
             get
             {
@@ -120,7 +125,7 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
             set { this.authorizeBlobsAccess = value; }
         }
 
-        public Func<HttpRequestMessage, bool> AuthenticateRequest
+        public Func<HttpActionContext, bool> AuthenticateRequest
         {
             get
             {
@@ -146,9 +151,21 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
             set { this.mapUserName = value; }
         }
 
-        public IEnumerable<Type> DelegatingHandlers { get; set; }
+        public IEnumerable<DelegatingHandler> DelegatingHandlers
+        {
+            get
+            {
+                return this.delegatingHandlers;
+            }
 
-        private static bool DefaultAnonymousAccess(HttpRequestMessage message)
+            set
+            {
+                this.delegatingHandlers = value;
+                GlobalConfiguration.Configuration.AddDelegatingHandlers(value.ToArray());
+            }
+        }
+
+        private static bool DefaultAnonymousAccess(HttpActionContext message)
         {
             // By default, return always true (anonymous user)
             return true;

@@ -27,8 +27,10 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications
 
         Endpoint Find(Func<Endpoint, bool> filterExpression);
 
+        Endpoint Find(string applicationId, string tileId, string clientId);
+
         void InsertOrUpdate(Endpoint endpoint);
 
-        void Delete(string applicationId, string deviceId);
+        void Delete(string applicationId, string tileId, string clientId);
     }
 }

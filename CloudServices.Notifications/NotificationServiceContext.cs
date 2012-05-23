@@ -18,8 +18,6 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications
 {
     using System;
 
-    using Microsoft.WindowsAzure.Samples.CloudServices.Notifications.Properties;
-
     public class NotificationServiceContext
     {
         private static readonly NotificationServiceContext Instance = new NotificationServiceContext();
@@ -39,8 +37,8 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications
         public void Configure(Action<NotificationServiceConfig> configure)
         {
             if (configure == null)
-                throw new ArgumentException(Resources.ErrorParameterConfigureParamCannotBeNull, "configure");
-            
+                throw new ArgumentException(Constants.ErrorParameterConfigureParamCannotBeNull, "configure");
+
             configure(this.config);
         }
     }

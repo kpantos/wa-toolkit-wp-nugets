@@ -20,11 +20,12 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications.WindowsAzur
     using System.Collections.Generic;
     using System.Data.Services.Client;
     using System.Linq;
-    using Common.Storage;
+    using Microsoft.WindowsAzure;
+    using Microsoft.WindowsAzure.Samples.Common.Storage;
 
     public class WindowsAzureEndpointRepository : IEndpointRepository
     {
-        protected readonly IAzureTable<EndpointTableRow> Table; 
+        protected readonly IAzureTable<EndpointTableRow> Table;
 
         private const string EndpointsTableName = "Endpoints";
 
@@ -77,6 +78,26 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications.WindowsAzur
             return this.Endpoints.Where(filterExpression).ToList().FirstOrDefault();
         }
 
+        public Endpoint Find(string applicationId, string tileId, string clientId)
+        {
+            var rowkey = EndpointTableRow.CreateRowKey(tileId, clientId);
+            Endpoint endpoint = null;
+
+            try
+            {
+                endpoint = this.Endpoints.Where(e => e.PartitionKey.Equals(applicationId) && e.RowKey.Equals(rowkey)).ToList().FirstOrDefault();
+            }
+            catch (DataServiceQueryException e)
+            {
+                if (e.Response.StatusCode != 404)
+                {
+                    throw;
+                }
+            }
+
+            return endpoint;
+        }
+
         public void InsertOrUpdate(Endpoint endpoint)
         {
             if (endpoint == null)
@@ -85,15 +106,15 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications.WindowsAzur
             this.Table.AddOrUpdateEntity(Endpoint.To<EndpointTableRow>(endpoint));
         }
 
-        public void Delete(string applicationId, string deviceId)
+        public void Delete(string applicationId, string tileId, string clientId)
         {
-            if (applicationId == null)
+            if (string.IsNullOrWhiteSpace(applicationId))
                 throw new ArgumentNullException("applicationId");
 
-            if (deviceId == null)
-                throw new ArgumentNullException("deviceId");
+            if (string.IsNullOrWhiteSpace(clientId))
+                throw new ArgumentNullException("clientId");
 
-            var storedEndpoint = this.Find(e => e.ApplicationId.Equals(applicationId) && e.DeviceId.Equals(deviceId));
+            var storedEndpoint = this.Find(applicationId, tileId, clientId);
 
             if (storedEndpoint != null)
                 this.Table.DeleteEntity(Endpoint.To<EndpointTableRow>(storedEndpoint));

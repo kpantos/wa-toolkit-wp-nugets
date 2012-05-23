@@ -26,6 +26,7 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage.Helpers
     using System.Net.Http.Headers;
     using System.Text;
     using System.Web;
+    using Microsoft.WindowsAzure;
 
     internal static class CredentialExtensions
     {
@@ -74,7 +75,7 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage.Helpers
                     canonicalizedString.AppendCanonicalizedElement("0");
                 else
                 {
-                    canonicalizedString.AppendCanonicalizedElement(string.Empty);                    
+                    canonicalizedString.AppendCanonicalizedElement(string.Empty);
                 }
 
                 canonicalizedString.AppendCanonicalizedElement(string.Empty);
@@ -179,7 +180,7 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage.Helpers
         {
             var canonicalizedString = new CanonicalizedString(string.Empty);
 
-            var keyList = 
+            var keyList =
                 headers.Where(h => h.Key.StartsWith("x-ms-", StringComparison.OrdinalIgnoreCase)).Select(header => header.Key).ToList();
 
             keyList.Sort();

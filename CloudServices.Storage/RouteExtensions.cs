@@ -16,53 +16,87 @@
 
 namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
 {
-    using System;
     using System.Linq;
+    using System.Net.Http;
+    using System.Net.Http.Headers;
+    using System.Web.Http;
     using System.Web.Routing;
-    using Microsoft.ApplicationServer.Http;
 
     public static class RouteExtensions
     {
         public static void MapQueuesProxyServiceRoute(this RouteCollection routes, string prefix)
         {
-            var handlers = StorageServicesContext.Current.Configuration.DelegatingHandlers.ToArray();
-
-            routes.MapQueuesProxyServiceRoute(prefix, handlers);
+            routes.MapQueuesProxyServiceRoute(prefix, new DelegatingHandler[] { });
         }
 
-        public static void MapQueuesProxyServiceRoute(this RouteCollection routes, string prefix, params Type[] handlers)
+        public static void MapQueuesProxyServiceRoute(this RouteCollection routes, string prefix, params DelegatingHandler[] handlers)
         {
-            var configuration = new HttpConfiguration().AddDelegatingHandlers(handlers).AddRequestHandlers();
+            var currentConfiguration = GlobalConfiguration.Configuration;
 
-            routes.MapServiceRoute<QueuesProxyService>(prefix, configuration);
+            // Handlers
+            currentConfiguration.AddDelegatingHandlers(handlers)
+                                .AddDelegatingHandlers(
+                                    new[] 
+                                    { 
+                                        new Handlers.ContentTypeSanitizerMessageHandler { ConfiguredControllers = new[] { "QueuesProxy" } } 
+                                    });
+
+            // Routes
+            routes.MapHttpRoute(
+                name: prefix,
+                routeTemplate: prefix + "/{*path}",
+                defaults: new { Controller = "QueuesProxy", path = RouteParameter.Optional });
         }
 
         public static void MapTablesProxyServiceRoute(this RouteCollection routes, string prefix)
         {
-            var handlers = StorageServicesContext.Current.Configuration.DelegatingHandlers.ToArray();
-
-            routes.MapTablesProxyServiceRoute(prefix, handlers);
+            routes.MapTablesProxyServiceRoute(prefix, new DelegatingHandler[] { });
         }
 
-        public static void MapTablesProxyServiceRoute(this RouteCollection routes, string prefix, params Type[] handlers)
+        public static void MapTablesProxyServiceRoute(this RouteCollection routes, string prefix, params DelegatingHandler[] handlers)
         {
-            var configuration = new HttpConfiguration().AddDelegatingHandlers(handlers).AddRequestHandlers();
+            var currentConfiguration = GlobalConfiguration.Configuration;
 
-            routes.MapServiceRoute<TablesProxyService>(prefix, configuration);
+            // Formatters
+            currentConfiguration.Formatters.XmlFormatter.SupportedMediaTypes.Add(new MediaTypeHeaderValue("application/atom+xml"));
+
+            // Handlers
+            currentConfiguration.AddDelegatingHandlers(handlers);
+
+            // Routes
+            routes.MapHttpRoute(
+                name: prefix,
+                routeTemplate: prefix + "/{*path}",
+                defaults: new { Controller = "TablesProxy", path = RouteParameter.Optional });
         }
 
         public static void MapSasServiceRoute(this RouteCollection routes, string prefix)
         {
-            var handlers = StorageServicesContext.Current.Configuration.DelegatingHandlers.ToArray();
-
-            routes.MapSasServiceRoute(prefix, handlers);
+            routes.MapSasServiceRoute(prefix, new DelegatingHandler[] { });
         }
 
-        public static void MapSasServiceRoute(this RouteCollection routes, string prefix, params Type[] handlers)
+        public static void MapSasServiceRoute(this RouteCollection routes, string prefix, params DelegatingHandler[] handlers)
         {
-            var configuration = new HttpConfiguration().AddDelegatingHandlers(handlers).AddRequestHandlers();
+            var currentConfiguration = GlobalConfiguration.Configuration;
 
-            routes.MapServiceRoute<SharedAccessSignatureService>(prefix, configuration);
+            // Handlers
+            currentConfiguration.AddDelegatingHandlers(handlers);
+
+            // Routes
+            routes.MapHttpRoute(
+                name: prefix + "_Containers",
+                routeTemplate: prefix + "/containers",
+                defaults: new { Controller = "SharedAccessSignature" });
+
+            routes.MapHttpRoute(
+                name: prefix + "_Container",
+                routeTemplate: prefix + "/containers/{containerName}",
+                defaults: new { Controller = "SharedAccessSignature", containerName = RouteParameter.Optional });
+
+            routes.MapHttpRoute(
+                name: prefix + "_Blob",
+                routeTemplate: prefix + "/blobs/{containerName}/{*blobName}",
+                defaults: new { Controller = "SharedAccessSignature" });
         }
     }
 }

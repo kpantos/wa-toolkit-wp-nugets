@@ -16,34 +16,18 @@
 
 namespace Microsoft.WindowsAzure.Samples.CloudServices.Identity.Membership
 {
-    using System;
     using System.Linq;
-    using Microsoft.ApplicationServer.Http;
-    using Microsoft.Net.Http;
+    using System.Net.Http;
+    using System.Web.Http;
 
     internal static class ConfigurationExtensions
     {
-        internal static HttpConfiguration AddDelegatingHandlers(this HttpConfiguration config, params Type[] handlers)
+        internal static HttpConfiguration AddDelegatingHandlers(this HttpConfiguration config, params DelegatingHandler[] handlers)
         {
             if (handlers != null)
-                handlers.ToList().ForEach(t => config.MessageHandlers.Add(t));
-
-            return config;
-        }
-
-        internal static HttpConfiguration AddRequestHandlers(this HttpConfiguration config)
-        {
-            var requestHandlers = config.RequestHandlers;
-
-            config.RequestHandlers = (c, e, od) =>
             {
-                if (requestHandlers != null)
-                    requestHandlers(c, e, od); // Original request handler
-
-                var filterAttribute = od.Attributes.Where(a => typeof(AuthenticateAttribute).IsAssignableFrom(a.GetType())).Cast<AuthenticateAttribute>().ToList();
-
-                filterAttribute.ForEach(a => c.Add(new MembershipAuthenticateUserOperationHandler()));
-            };
+                handlers.ToList().ForEach(t => config.MessageHandlers.Add(t));
+            }
 
             return config;
         }

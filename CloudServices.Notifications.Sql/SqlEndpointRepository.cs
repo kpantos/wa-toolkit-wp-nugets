@@ -57,11 +57,16 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications.Sql
             }
         }
 
+        public Endpoint Find(string applicationId, string tileId, string clientId)
+        {
+            return this.Find(e => e.ApplicationId.Equals(applicationId) && e.TileId.Equals(tileId ?? string.Empty) && e.ClientId.Equals(clientId));
+        }
+
         public void InsertOrUpdate(Endpoint endpoint)
         {
             using (var context = this.CreateContext())
             {
-                var storedEndpoint = this.Find(e => e.ApplicationId.Equals(endpoint.ApplicationId) && e.DeviceId.Equals(endpoint.DeviceId));
+                var storedEndpoint = this.Find(endpoint.ApplicationId, endpoint.TileId, endpoint.ClientId);
 
                 if (storedEndpoint == null)
                 {
@@ -74,7 +79,7 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications.Sql
 
                     // Update values
                     updatableEndpoint.ChannelUri = endpoint.ChannelUri;
-                    updatableEndpoint.Expiry = endpoint.Expiry;
+                    updatableEndpoint.ExpirationTime = endpoint.ExpirationTime;
                     updatableEndpoint.UserId = endpoint.UserId;
                 }
 
@@ -82,16 +87,25 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications.Sql
             }
         }
 
-        public void Delete(string applicationId, string deviceId)
+        public void Delete(string applicationId, string tileId, string clientId)
         {
+            if (string.IsNullOrWhiteSpace(applicationId))
+                throw new ArgumentNullException("applicationId");
+            
+            if (string.IsNullOrWhiteSpace(clientId))
+                throw new ArgumentNullException("clientId");
+
             using (var context = this.CreateContext())
             {
-                var storedEndpoint = this.Find(e => e.ApplicationId.Equals(applicationId) && e.DeviceId.Equals(deviceId));
+                var storedEndpoint = this.Find(applicationId, tileId, clientId);
 
-                var removableEndpoint = Endpoint.To<SqlEndpointTableRow>(storedEndpoint);
-                context.Endpoints.Attach(removableEndpoint);
-                context.Endpoints.Remove(removableEndpoint);
-                context.SaveChanges();
+                if (storedEndpoint != null)
+                {
+                    var removableEndpoint = Endpoint.To<SqlEndpointTableRow>(storedEndpoint);
+                    context.Endpoints.Attach(removableEndpoint);
+                    context.Endpoints.Remove(removableEndpoint);
+                    context.SaveChanges();
+                }
             }
         }
 

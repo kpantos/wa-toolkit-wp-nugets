@@ -18,8 +18,6 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
 {
     using System;
 
-    using Microsoft.WindowsAzure.Samples.CloudServices.Storage.Properties;
-
     public class StorageServicesContext
     {
         private static readonly StorageServicesContext Instance = new StorageServicesContext();
@@ -39,7 +37,7 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage
         public void Configure(Action<StorageServicesConfig> configureAction)
         {
             if (configureAction == null)
-                throw new ArgumentException(Resource.ConfigureActionArgumentNullErrorMessage, "configureAction");
+                throw new ArgumentException(Constants.ConfigureActionArgumentNullErrorMessage, "configureAction");
             
             configureAction(this.config);
         }

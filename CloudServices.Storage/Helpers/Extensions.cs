@@ -21,7 +21,7 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage.Helpers
     using System.Net;
     using System.Net.Http;
     using System.Net.Http.Headers;
-    using Microsoft.ApplicationServer.Http.Dispatcher;
+    using System.Web.Http;
 
     public static class Extensions
     {
@@ -54,6 +54,7 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage.Helpers
             response.ReasonPhrase = error;
             response.Content = new StringContent(errorMessage);
             response.Content.Headers.ContentType = new MediaTypeHeaderValue("application/atom+xml");
+
             return new HttpResponseException(response);
         }
     }

@@ -16,10 +16,11 @@
 
 namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications
 {
-    using System;
+    using System.Collections.Generic;
     using System.Linq;
+    using System.Net.Http;
+    using System.Web.Http;
     using System.Web.Routing;
-    using ApplicationServer.Http;
 
     public static class RouteExtensions
     {
@@ -30,11 +31,35 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications
             routes.MapRegistrationServiceRoute(prefix, handlers);
         }
 
-        public static void MapRegistrationServiceRoute(this RouteCollection routes, string prefix, params Type[] handlers)
+        public static void MapRegistrationServiceRoute(this RouteCollection routes, string prefix, params DelegatingHandler[] handlers)
         {
-            var configuration = new HttpConfiguration().AddDelegatingHandlers(handlers).AddRequestHandlers();
+            var currentConfiguration = GlobalConfiguration.Configuration;
 
-            routes.MapServiceRoute<EndpointService>(prefix, configuration);
+            // Handlers
+            currentConfiguration.AddDelegatingHandlers(handlers);
+
+            // Register Dependencies 
+            // NOTE: For any types that your dependency resolver does not handle, 
+            // GetService should return null and GetServices should return an empty collection object
+            currentConfiguration.ServiceResolver.SetResolver(
+                t =>
+                {
+                    if (t == typeof(EndpointController))
+                    {
+                        return new EndpointController(
+                            NotificationServiceContext.Current.Configuration.StorageProvider,
+                            NotificationServiceContext.Current.Configuration.MapUsername);
+                    }
+
+                    return null;
+                },
+                t => new List<object>());
+
+            // Routes
+            routes.MapHttpRoute(
+                name: prefix,
+                routeTemplate: prefix + "/{applicationId}/{clientId}/{tileId}",
+                defaults: new { Controller = "Endpoint", applicationId = RouteParameter.Optional, tileId = RouteParameter.Optional, clientId = RouteParameter.Optional });
         }
     }
 }

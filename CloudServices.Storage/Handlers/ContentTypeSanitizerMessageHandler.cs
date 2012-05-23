@@ -14,14 +14,23 @@
 // places, or events is intended or should be inferred.
 // ----------------------------------------------------------------------------------
 
-namespace Microsoft.WindowsAzure.Samples.Phone.Notifications
+namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage.Handlers
 {
-    using System;
+    using System.Net.Http;
+    using System.Net.Http.Headers;
+    using System.Threading;
 
-    public interface IPushClient
+    public class ContentTypeSanitizerMessageHandler : ControllerFilteredMessageProcessingHandler
     {
-        void Register(Action<PushRegistrationResponse> callback, Uri tileNavigationUri = null);
+        protected override HttpRequestMessage ProcessRequestHandler(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.Content.Headers.ContentType == null)
+            {
+                // Set the default Content-Type when it is not specified
+                request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/xml");
+            }
 
-        void Unregister(Action<PushRegistrationResponse> callback, Uri tileNavigationUri = null);
+            return request;
+        }
     }
 }

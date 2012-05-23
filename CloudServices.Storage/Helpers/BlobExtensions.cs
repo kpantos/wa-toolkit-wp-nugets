@@ -17,15 +17,14 @@
 namespace Microsoft.WindowsAzure.Samples.CloudServices.Storage.Helpers
 {
     using System;
-    using Microsoft.WindowsAzure.Samples.CloudServices.Storage.Properties;
 
     public static class BlobExtensions
     {
-        public static SasCloudBlobContainer ToModel(this StorageClient.CloudBlobContainer container)
+        public static SasCloudBlobContainer ToModel(this Microsoft.WindowsAzure.StorageClient.CloudBlobContainer container)
         {
             if (container == null)
             {
-                throw new ArgumentNullException("container", Resource.ContainerCannotBeNullErrorMessage);
+                throw new ArgumentNullException("container", Constants.ContainerCannotBeNullErrorMessage);
             }
 
             return new SasCloudBlobContainer

@@ -20,33 +20,21 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications
     using System.Collections.Generic;
     using System.Net;
     using System.Net.Http;
-    using System.Security.Principal;
-    using System.ServiceModel;
-    using System.ServiceModel.Activation;
-    using System.ServiceModel.Web;
     using System.Web;
-    using ApplicationServer.Http.Dispatcher;
-    using Properties;
+    using System.Web.Http;
 
-    [ServiceContract]
-    [ServiceBehavior(IncludeExceptionDetailInFaults = false)]
-    [AspNetCompatibilityRequirements(RequirementsMode = AspNetCompatibilityRequirementsMode.Required)]
-    public class EndpointService
+    public class EndpointController : ApiController
     {
         protected readonly IEndpointRepository Repository;
         private readonly Func<HttpRequestMessage, string> mapUsernameDelegate;
+        private static TimeSpan defaultEndpointExpirationTime = TimeSpan.FromDays(30);
 
-        public EndpointService()
-            : this(NotificationServiceContext.Current.Configuration.StorageProvider, NotificationServiceContext.Current.Configuration.MapUsername)
-        {
-        }
-
-        public EndpointService(IEndpointRepository repository)
+        public EndpointController(IEndpointRepository repository)
             : this(repository, NotificationServiceContext.Current.Configuration.MapUsername)
         {
         }
 
-        public EndpointService(IEndpointRepository repository, Func<HttpRequestMessage, string> mapUsernameDelegate)
+        public EndpointController(IEndpointRepository repository, Func<HttpRequestMessage, string> mapUsernameDelegate)
         {
             if (repository == null)
                 throw new ArgumentNullException("repository");
@@ -55,8 +43,8 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications
             this.mapUsernameDelegate = mapUsernameDelegate;
         }
 
-        [WebGet(UriTemplate = ""), AuthenticateEndpoint, AuthorizeManagementEndpoint]
-        public IEnumerable<Endpoint> GetAll()
+        [AuthenticateEndpoint, AuthorizeManagementEndpoint]
+        public IEnumerable<Endpoint> Get()
         {
             try
             {
@@ -68,17 +56,17 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications
             }
         }
 
-        [WebGet(UriTemplate = "{applicationId}/{deviceId}"), AuthenticateEndpoint, AuthorizeManagementEndpoint]
-        public HttpResponseMessage<Endpoint> Get(string applicationId, string deviceId)
+        [AuthenticateEndpoint, AuthorizeManagementEndpoint]
+        public HttpResponseMessage<Endpoint> Get(string applicationId, string tileId, string clientId)
         {
             try
             {
-                var endpoint = this.Repository.Find(e => e.ApplicationId == applicationId && e.DeviceId == deviceId);
+                var endpoint = this.Repository.Find(applicationId, tileId, clientId);
 
                 if (endpoint == null)
                     return new HttpResponseMessage<Endpoint>(null, HttpStatusCode.NotFound);
 
-                return new HttpResponseMessage<Endpoint>(endpoint, HttpStatusCode.OK);
+                return new HttpResponseMessage<Endpoint>(Endpoint.To<Endpoint>(endpoint), HttpStatusCode.OK);
             }
             catch (Exception exception)
             {
@@ -86,43 +74,46 @@ namespace Microsoft.WindowsAzure.Samples.CloudServices.Notifications
             }
         }
 
-        [WebInvoke(UriTemplate = "", Method = "PUT"), AuthenticateEndpoint, AuthorizeRegistrationEndpoint]
-        public HttpResponseMessage<Endpoint> Put(HttpRequestMessage<Endpoint> message)
+        [AuthenticateEndpoint, AuthorizeRegistrationEndpoint]
+        public HttpResponseMessage<Endpoint> Put(Endpoint endpoint)
         {
-            if (message == null)
-                throw WebException(Resources.ErrorParameterEndpointCannotBeNull, HttpStatusCode.BadRequest);
-
             try
             {
-                var readTask = message.Content.ReadAsAsync();
-                readTask.Wait();
-                var endpoint = readTask.Result;
+                if (endpoint == null)
+                    throw WebException(Constants.ErrorParameterEndpointCannotBeNull, HttpStatusCode.BadRequest);
 
                 // Set the username under which the app will store the channel
-                endpoint.UserId = this.mapUsernameDelegate(message);
+                endpoint.UserId = this.mapUsernameDelegate(this.Request);
+
+                if (endpoint.ExpirationTime == null || endpoint.ExpirationTime == DateTime.MinValue)
+                    endpoint.ExpirationTime = DateTime.UtcNow.Add(defaultEndpointExpirationTime);
 
                 this.Repository.InsertOrUpdate(endpoint);
                 return new HttpResponseMessage<Endpoint>(endpoint, HttpStatusCode.Accepted);
             }
+            catch (HttpResponseException)
+            {
+                throw;
+            }
             catch (Exception exception)
             {
                 throw WebException(exception.Message, HttpStatusCode.InternalServerError);
             }
         }
 
-        [WebInvoke(UriTemplate = "{applicationId}/{deviceId}", Method = "DELETE"), AuthenticateEndpoint, AuthorizeRegistrationEndpoint]
-        public HttpResponseMessage Delete(string applicationId, string deviceId)
+        [AuthenticateEndpoint, AuthorizeRegistrationEndpoint]
+        public HttpResponseMessage Delete(string applicationId, string tileId, string clientId)
         {
             if (string.IsNullOrWhiteSpace(applicationId))
-                throw WebException(Resources.ErrorParameterApplicationIdCannotBeNull, HttpStatusCode.BadRequest);
-
-            if (string.IsNullOrWhiteSpace(deviceId))
-                throw WebException(Resources.ErrorParameterDeviceIdCannotBeNull, HttpStatusCode.BadRequest);
+                throw WebException(Constants.ErrorParameterApplicationIdCannotBeNull, HttpStatusCode.BadRequest);
+            
+            if (string.IsNullOrWhiteSpace(clientId))
+                throw WebException(Constants.ErrorParameterClientIdCannotBeNull, HttpStatusCode.BadRequest);
 
             try
             {
-                this.Repository.Delete(applicationId, deviceId);
-                return new HttpResponseMessage { StatusCode = HttpStatusCode.Accepted };
+                this.Repository.Delete(applicationId, tileId, clientId);
+                return new HttpResponseMessage(HttpStatusCode.Accepted);
             }
             catch (Exception exception)
             {

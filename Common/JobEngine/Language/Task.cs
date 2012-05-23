@@ -30,5 +30,5 @@ namespace Microsoft.WindowsAzure.Samples.Common.JobEngine.Language
         {
             return new TaskBuilder<T>(condition);
         }
-    }    
+    }
 }

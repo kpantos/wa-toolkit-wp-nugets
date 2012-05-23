@@ -45,22 +45,22 @@ namespace Microsoft.WindowsAzure.Samples.Common.JobEngine.Conditions
                 this.timer.Start();
             }
 
-            public void Dispose()
-            {
-                timer.Dispose();
-                signal.Dispose();
-            }
-
             public Func<bool> TickFunc
             {
                 get
                 {
                     return () =>
-                        {
-                            this.signal.WaitOne();
-                            return true;
-                        };
+                    {
+                        this.signal.WaitOne();
+                        return true;
+                    };
                 }
+            }
+
+            public void Dispose()
+            {
+                this.timer.Dispose();
+                this.signal.Dispose();
             }
         }
     }
